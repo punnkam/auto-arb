@@ -1,0 +1,17 @@
+aiodns==2.0.0
+aiohttp==3.7.4.post0
+async-timeout==3.0.1
+attrs==21.2.0
+ccxt==1.51.51
+certifi==2021.5.30
+cffi==1.14.5
+chardet==4.0.0
+cryptography==3.4.7
+idna==2.10
+multidict==5.1.0
+pycares==4.0.0
+pycparser==2.20
+requests==2.25.1
+typing-extensions==3.10.0.0
+urllib3==1.26.5
+yarl==1.6.3

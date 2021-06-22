@@ -1,0 +1,8 @@
+exchangename
+apikey
+apisecret
+max notional size (dollars)
+main token
+funding threshold high
+funding threshold low
+max leverage
