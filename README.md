@@ -5,14 +5,17 @@ The trading bot arbitrages the contango (if exists) between a crypto-asset's spo
 
 ## Funding Rate 
 The funding rates were calculated using Binance's supported documentation which can be found here
+
 https://www.binance.com/en/support/faq/360033525031
 
 ## Price Index
 The price index, a component of the funding calculation, were calculated using Binance's supported documentation which can be found here
+
 https://www.binance.com/en/support/faq/547ba48141474ab3bddc5d7898f97928
 
 ## Margin and Leverage 
 For more information about margin and leverage
+
 https://www.binance.com/en/support/faq/360033162192
 
 * Some parameters are fixed for the specific neutral-risk profile. 
