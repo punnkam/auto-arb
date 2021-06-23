@@ -7,8 +7,6 @@ import threading
 
 configs = {}
 running = False
-started = False
-stopper = threading.Event()
 
 # using taker fees as all orders will be placed at market due to complications with
 # limit chasing and risk of not being filled. Slippage is negligible as trade sizes will
@@ -33,8 +31,8 @@ def parse_commands(command):
         return 0
     elif command == 'start': 
         startbot()
-    elif command == 'stop':
-        endbot()
+    elif command == 'close':
+        close_all()
     elif command == 'config':
         configr.print_conf_list()
         confname = input('Enter the config name: ')
@@ -55,6 +53,7 @@ def query_pos():
         notional = pos['notional']
         pnl = pos['unrealizedPnl']
         print(f'\n{side} {symb}, size: {notional}, upnl: {pnl}\n')
+    return positions
 
 def connect_xchange(testnet=True):
     # connect to exchange using config info
@@ -85,30 +84,31 @@ Method used to open trades in both Spot and Futures markets.
 @return True if trade is opened, False otherwise
 '''
 def open_trade(exchange, type, symbol):
-    # if running:
-    #     return False
+    if running:
+        return False
     
-    # if type == 'spot':
-    #     exchange.options['defaultType'] = 'spot'
-    #     if exchange.has['createMarketOrder']:
-    #         order = exchange.createMarketBuyOrder(symbol, float(configs['size'])/2)
-    #         print('Market Buy %s %s @%s '% order['amount'], symbol, order['average'])
-    #         return order['status'] == 'open'
-    # elif type == 'future':
-    #     exchange.options['defaultType'] = 'future'
-    #     market = exchange.markets[symbol]
-    #     exchange.fapiPrivate_post_leverage({
-    #         'symbol': market['id'],
-    #         'leverage': configs['maxleverage'], # it will always be 2
-    #     })
-    #     if exchange.has['createMarketOrder']:
-    #         order = exchange.createMarketSellOrder(symbol, float(configs['size'])/2)
-    #         print('Market Buy %s %s @%s '% order['amount'], symbol, order['average'])
-    #         return order['status'] == 'open'
-    # else:
-    #     print('Invalid Trade Type')
-    #     return False
-    return False
+    if type == 'spot':
+        exchange.options['defaultType'] = 'spot'
+        exchange.loadMarkets()
+        if exchange.has['createMarketOrder']:
+            order = exchange.createMarketBuyOrder(symbol, float(configs['size'])/2)
+            print('Market Buy %s %s @%s '% order['amount'], symbol, order['average'])
+            return order['status'] == 'open'
+    elif type == 'future':
+        exchange.options['defaultType'] = 'future'
+        exchange.loadMarkets()
+        market = exchange.markets[symbol]
+        exchange.fapiPrivate_post_leverage({
+            'symbol': market['id'],
+            'leverage': configs['maxleverage'], # it will always be 2
+        })
+        if exchange.has['createMarketOrder']:
+            order = exchange.createMarketSellOrder(symbol, float(configs['size'])/2)
+            print('Market Buy %s %s @%s '% order['amount'], symbol, order['average'])
+            return order['status'] == 'open'
+    else:
+        print('Invalid Trade Type')
+        return False
 
 '''
 Method used to close trades in both Spot and Futures markets. Spot and Futures
@@ -119,32 +119,33 @@ positions are closed simultaneously so no market needs to be specified.
 @return True if trade is closed, False otherwise
 '''
 def close_trade(exchange, type, symbol):
-    # if not running:
-    #     return False
+    if not running:
+        return False
 
-    # if type == 'spot':
-    #     exchange.options['defaultType'] = 'spot'
-    #     if exchange.has['createMarketOrder']:
-    #         order = exchange.create_order(symbol=symbol, type="MARKET", side="sell", 
-    #                 amount=float(configs['size'])/2, params={"reduceOnly": True}) 
-    #         print('Market Sell %s %s @%s '% order['amount'], symbol, order['average'])
-    #         return order['status'] == 'closed'
-    # elif type == 'future':
-    #     exchange.options['defaultType'] = 'future'
-    #     market = exchange.markets[symbol]
-    #     exchange.fapiPrivate_post_leverage({
-    #         'symbol': market['id'],
-    #         'leverage': configs['maxleverage'], # it will always be 2
-    #     })
-    #     if exchange.has['createMarketOrder']:
-    #         order = exchange.create_order(symbol=symbol, type="MARKET", side="buy", 
-    #                 amount=float(configs['size'])/2, params={"reduceOnly": True})
-    #         print('Market Sell %s %s @%s '% order['amount'], symbol, order['average'])
-    #         return order['status'] == 'closed'
-    # else:
-    #     print('Invalid Trade Type')
-    #     return False
-    return False
+    if type == 'spot':
+        exchange.options['defaultType'] = 'spot'
+        exchange.loadMarkets()
+        if exchange.has['createMarketOrder']:
+            order = exchange.create_order(symbol=symbol, type="MARKET", side="sell", 
+                    amount=float(configs['size'])/2, params={"reduceOnly": True}) 
+            print('Market Sell %s %s @%s '% order['amount'], symbol, order['average'])
+            return order['status'] == 'closed'
+    elif type == 'future':
+        exchange.options['defaultType'] = 'future'
+        exchange.loadMarkets()
+        market = exchange.markets[symbol]
+        exchange.fapiPrivate_post_leverage({
+            'symbol': market['id'],
+            'leverage': configs['maxleverage'], # it will always be 2
+        })
+        if exchange.has['createMarketOrder']:
+            order = exchange.create_order(symbol=symbol, type="MARKET", side="buy", 
+                    amount=float(configs['size'])/2, params={"reduceOnly": True})
+            print('Market Sell %s %s @%s '% order['amount'], symbol, order['average'])
+            return order['status'] == 'closed'
+    else:
+        print('Invalid Trade Type')
+        return False
     
 
 # Calculation for Price Index is not included as it requires price data from multiple spot exchanges
@@ -238,18 +239,19 @@ def get_bas(exchange, symbol):
     return bid, ask, spread 
 
 # loop arbitrage to use for thread
-def loop_arb(stop_event, exchange, funding, symbol):
-    while not stop_event.wait(1):
-        print('Checking for arbitrage...\n')
-        arb_it(exchange, funding, symbol)
-        time.sleep(1800) # check arb condition every 30 mins 
-    print('Stop checking for arbitrage...\n')
+def loop_arb(exchange, funding, symbol):
+    try:
+        while True:
+            print('Checking for arbitrage...\n')
+            arb_it(exchange, funding, symbol)
+            time.sleep(1800) # check arb condition every 30 mins 
+    except KeyboardInterrupt:
+        print('Stop checking for arbitrage...\n')
+        pass
 
 # Start the bot (scan API, check for trade condition, execute trades + output) 
 def startbot():
     print('\nBot starting...')
-    global started
-    started = True
     try:
         exchange = connect_xchange()
         print('Successfully connected to exchange\n')
@@ -260,24 +262,25 @@ def startbot():
     symbol = configs['maintoken']
     funding = funding_rate(exchange, symbol)
     
-    global stopper
-    background = threading.Thread(target=loop_arb, args=(stopper, exchange, funding, symbol,))
-    background.start()
-    background.join()
-    
+    print('Starting Arb-Loop, Ctrl-C to Stop\n')
+    loop_arb(exchange, funding, symbol)
 
-    return 0
+# Close all trades.
+def close_all():
+    print('Current Positions... \n')
+    if not query_pos():
+        print('No Current Positions, nothing to close')
+    else:
+        print('Force Closing All Positions...')
+        try:
+            exchange = connect_xchange()
+            symbol = configs['maintoken']
+            funding = funding_rate(exchange, symbol)
 
-# Stop bot running, close all endpoints.
-def endbot():
-    if not started:
-        print('No Instance Running, Invalid Stop')
-        return
-    
-    global stopper
-    stopper.set()
-    print('Bot Ending...')
-
+            close_trade(exchange, 'spot', symbol)
+            close_trade(exchange, 'future', symbol)
+        except:
+            print('\nERROR: Attempted Force Close Failed\n')
 
 
 if __name__ == '__main__':
