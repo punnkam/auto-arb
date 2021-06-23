@@ -1,8 +1,8 @@
 binance
 xxxxxx
 xxxxxx
-30
-BTC/USDT
+100
+ETH/USDT
+0.03
 0.05
-0.001
-2
+5

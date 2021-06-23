@@ -1,0 +1,8 @@
+ftx
+xxxxxx
+xxxxxx
+500
+BTC-PERP
+0.0005
+0.0001
+10

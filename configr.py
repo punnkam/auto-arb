@@ -3,7 +3,6 @@ import glob
 import os
 
 def setup(pref = 'default'):
-
     pref += '.txt'
     names = [x[14:] for x in glob.glob('config/config*')]
     if pref not in names:
@@ -26,13 +25,11 @@ def setup(pref = 'default'):
         mydict['maxleverage'] = f.readline()[:-1]
         f.close()
     except:
-        print_error()
+        print('Error: File could not be opened')
     return mydict
 
 def print_conf_list():
     for name in glob.glob('config/config*'):
         print(name[14:len(name)-4])
 
-def print_error():
-    logging.warning('Error: File could not be opened')
 
