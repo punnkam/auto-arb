@@ -18,14 +18,20 @@ leverage = 2 # default max leverage
 
 def main():
     global configs 
+    # load configurations
     configs = configr.setup()
+    # infinite input loop
     while True:
-        command = input('Enter a command: ')
+        command = input('Enter a command (start, close, config, pos, quit): ')
         if parse_commands(command) == 0:
             break
     return 0
 
-# parse commands passed in the command line
+'''
+Bad implementation to parse command line arguments. Wanted a simple way to 
+loop input and command parsing to enable continuous execution of the 
+script. Must be a more elegant way to do it in Python.
+'''
 def parse_commands(command):
     if command == 'quit' or command == 'q':
         return 0
@@ -43,7 +49,10 @@ def parse_commands(command):
     else:
         print('\nERROR: Command is not recognized\n')
 
-# query current positions
+'''
+Query and print currently open positions. Used for 'pos' command line
+input. Display the relevant values.
+'''
 def query_pos():
     exchange = connect_xchange()
     positions = exchange.fetchPositions()
@@ -55,6 +64,11 @@ def query_pos():
         print(f'\n{side} {symb}, size: {notional}, upnl: {pnl}\n')
     return positions
 
+
+'''
+Connect to an exchange using the API key and secret. Was planning to implement
+concurrency but didn't understand it in Python quite yet. 
+'''
 def connect_xchange(testnet=True):
     # connect to exchange using config info
     exchange_id = configs['exchange']
